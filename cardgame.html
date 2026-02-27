@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Snap Game Pro – Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#111;
+color:white;
+overflow:hidden;
+}
+
+/* SCREENS */
+.screen{
+display:none;
+height:100vh;
+width:100%;
+position:absolute;
+top:0;
+left:0;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+.active{
+display:flex;
+}
+
+/* START SCREEN */
+#startScreen{
+background:linear-gradient(135deg,#1e3c72,#2a5298);
+}
+
+/* LEVEL SCREEN */
+#levelScreen{
+background:#111;
+}
+
+/* BUTTON */
+.btn{
+padding:12px 25px;
+margin:10px;
+font-size:18px;
+border:none;
+border-radius:25px;
+cursor:pointer;
+background:gold;
+color:black;
+font-weight:bold;
+}
+
+/* GAME SCREEN */
+#gameScreen{
+background:#111;
+flex-direction:column;
+}
+
+#main{
+width:100%;
+text-align:center;
+}
+
+#gameArea{
+width:95%;
+height:70vh;
+display:grid;
+gap:8px;
+margin:auto;
+margin-top:10px;
+overflow-y:auto;
+}
+
+/* GRID CARD */
+.card{
+background:white;
+color:black;
+font-size:20px;
+font-weight:bold;
+display:flex;
+justify-content:center;
+align-items:center;
+border-radius:8px;
+cursor:pointer;
+height:70px;
+transition:0.2s;
+}
+
+.card.matched{
+background:gold;
+transform:scale(1.1);
+}
+
+#topBar{
+margin-top:10px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen" class="screen active">
+<h1>🃏 Snap Game Pro</h1>
+<button class="btn" onclick="openLevels()">Start Game</button>
+</div>
+
+<!-- LEVEL SCREEN -->
+<div id="levelScreen" class="screen">
+<h2>Select Level</h2>
+<div id="levelList"></div>
+<button class="btn" onclick="backToStart()">Back</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+<div id="main">
+<h2>🃏 Snap Game Pro – Ultimate</h2>
+
+<div id="topBar">
+<div id="levelText"></div>
+<div id="score"></div>
+<div id="timer"></div>
+<div id="lives"></div>
+</div>
+
+<div id="gameArea"></div>
+</div>
+</div>
+
+<script>
+
+let maxLevel=20;
+let currentLevel=1;
+let unlockedLevel=parseInt(localStorage.getItem("unlock")||1);
+
+let score=0;
+let lives=3;
+let timeLeft=30;
+let timerInterval;
+let firstCard=null;
+let secondCard=null;
+
+const gameArea=document.getElementById("gameArea");
+
+/* SCREEN SWITCH */
+function showScreen(id){
+document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+}
+
+function openLevels(){
+createLevelButtons();
+showScreen("levelScreen");
+}
+
+function backToStart(){
+showScreen("startScreen");
+}
+
+/* LEVEL BUTTONS */
+function createLevelButtons(){
+let list=document.getElementById("levelList");
+list.innerHTML="";
+for(let i=1;i<=maxLevel;i++){
+let btn=document.createElement("button");
+btn.innerText="Level "+i;
+btn.className="btn";
+if(i>unlockedLevel){
+btn.disabled=true;
+btn.style.background="gray";
+}else{
+btn.onclick=()=>selectLevel(i);
+}
+list.appendChild(btn);
+}
+}
+
+function selectLevel(level){
+currentLevel=level;
+showScreen("gameScreen");
+startLevel();
+}
+
+/* START LEVEL */
+function startLevel(){
+clearInterval(timerInterval);
+gameArea.innerHTML="";
+score=0;
+lives=3;
+timeLeft=30;
+firstCard=null;
+secondCard=null;
+
+/* LEVEL 1=10, 2=20, 3=30 ... */
+let numbers=currentLevel*10;
+
+let values=[];
+for(let i=1;i<=numbers;i++) values.push(i,i);
+values.sort(()=>Math.random()-0.5);
+
+/* AUTO GRID COLUMNS */
+let totalCards=values.length;
+let columns=Math.ceil(Math.sqrt(totalCards));
+gameArea.style.gridTemplateColumns=`repeat(${columns},1fr)`;
+
+values.forEach(v=>{
+let card=document.createElement("div");
+card.className="card";
+card.innerText="?";
+card.dataset.val=v;
+card.onclick=()=>handleClick(card);
+gameArea.appendChild(card);
+});
+
+startTimer();
+updateUI();
+}
+
+function handleClick(card){
+if(card.classList.contains("matched") || card===firstCard || secondCard) return;
+
+card.innerText=card.dataset.val;
+
+if(!firstCard){
+firstCard=card;
+}else{
+secondCard=card;
+setTimeout(checkMatch,400);
+}
+}
+
+function checkMatch(){
+if(firstCard && secondCard && firstCard!==secondCard &&
+   firstCard.dataset.val===secondCard.dataset.val){
+
+firstCard.classList.add("matched");
+secondCard.classList.add("matched");
+score+=10;
+
+}else{
+firstCard.innerText="?";
+secondCard.innerText="?";
+lives--;
+}
+
+firstCard=null;
+secondCard=null;
+updateUI();
+
+if(document.querySelectorAll(".matched").length===
+document.querySelectorAll(".card").length){
+clearInterval(timerInterval);
+levelComplete();
+}
+}
+
+function levelComplete(){
+if(currentLevel===unlockedLevel && unlockedLevel<maxLevel){
+unlockedLevel++;
+localStorage.setItem("unlock",unlockedLevel);
+}
+alert("Level "+currentLevel+" Complete!");
+
+if(currentLevel<maxLevel){
+startLevel(currentLevel+1);
+}else{
+alert("You Finished All Levels!");
+showScreen("levelScreen");
+}
+}
+
+function startTimer(){
+timerInterval=setInterval(()=>{
+timeLeft--;
+updateUI();
+if(timeLeft<=0){
+clearInterval(timerInterval);
+alert("Time Up!");
+startLevel();
+}
+},1000);
+}
+
+function updateUI(){
+document.getElementById("levelText").innerText="Level: "+currentLevel;
+document.getElementById("score").innerText="Score: "+score;
+document.getElementById("lives").innerText="Lives: "+lives;
+document.getElementById("timer").innerText="Time: "+timeLeft+"s";
+}
+
+</script>
+
+</body>
+</html>
